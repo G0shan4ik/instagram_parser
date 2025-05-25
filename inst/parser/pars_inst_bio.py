@@ -36,10 +36,11 @@ class ParsBioManager:
         except Exception as ex:
             logger.error(f'scrape_user ERROR\n{ex}\n')
 
-    async def run(self, links: list[str], print_data: bool = False) -> Optional[dict]:
+    async def run(self, links: list[str], per_second: int = 1, print_data: bool = False) -> Optional[dict]:
         """
             Pars Instagram BIO Manager
         :param links: [ "https://www.instagram.com/{username}?igsh={Instagram_Share_Hash}", ]
+        :param per_second: Number of requests per second
         :param print_data: Output data to the console; Default False
         :return: Optional[ Dict { key(username) : value(bio text) } ]
         """
@@ -59,13 +60,7 @@ class ParsBioManager:
                 for username in self.usernames:
                     processes.append(self.scrape_user(username))
 
-                num = 2
-                if len(processes) < 25:
-                    num = 5
-                elif len(processes) < 40:
-                    num = 3
-
-                for items in chunks(processes, num):
+                for items in chunks(processes, per_second):
                     await asyncio.sleep(2)
                     result.extend(await asyncio.gather(*items))
 
@@ -80,4 +75,4 @@ class ParsBioManager:
                 return _dct
         except Exception as ex:
             logger.error(f'!!! FATAL ERROR !!!\n\n{ex}\n\n')
-            return {'error': 'Fatal Error'}
+            return {'error': str(ex)}

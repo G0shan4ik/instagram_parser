@@ -16,7 +16,7 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-class ParsBioManager:
+class ParsVideoManager:
     @staticmethod
     async def safe_sleep(min_seconds=1.5, max_seconds=3.0, print_sec: bool = False) -> None:
         if print_sec:
@@ -65,6 +65,13 @@ class ParsBioManager:
         return result
 
     async def run(self, links: list[str], per_second: int = 1, print_data: bool = False) -> Optional[list[dict] | dict]:
+        """
+            Pars Instagram VIDEO Manager
+        :param links: [ "https://www.instagram.com/reel/{username}/?igsh={Instagram_Share_Hash}", ]
+        :param per_second: Number of requests per second
+        :param print_data: Output data to the console; Default False
+        :return: Optional[ List [ Dict { key( likes; comments; description; views; ) : value } ] ]
+        """
         try:
             processes: list[Awaitable] = []
             result: list[dict] = []
@@ -81,17 +88,4 @@ class ParsBioManager:
             return result
         except Exception as ex:
             logger.error(f'!!! FATAL ERROR !!!\n\n{ex}\n\n')
-            return {'error': 'Fatal Error'}
-
-
-if __name__ == "__main__":
-    per = ParsBioManager()
-
-    asyncio.run(per.run(
-        print_data=True,
-        links=[
-            'https://www.instagram.com/reel/DJJfIBDAe9W/?igsh=YjU2MmRkNDJkYW14',
-            'https://www.instagram.com/reel/DJ88RSTooPu/?igsh=aG9icDB2ZXUxM3Bh',
-            'https://www.instagram.com/reel/DJGh6G3u53M/?igsh=MTI3ZXVtdXJkY2Zpeg=='
-        ]
-    ))
+            return {'error': str(ex)}
