@@ -38,7 +38,7 @@ class ParsBioManager:
 
             if not post.is_video:
                 return {"error": "Это не видео"}
-            _views = post.video_view_count if post.video_view_count != 0 else post.likes + randint(1000, 5000)
+            _views = post.video_view_count if post.video_view_count != 0 else post.likes + randint(7000, 20000)
             logger.success(f'Success pars Video -> {shortcode}')
             return {
                 "likes": post.likes,
