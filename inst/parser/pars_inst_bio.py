@@ -46,7 +46,7 @@ class ParsBioManager:
         """
         try:
             result, _dct = [], {}
-            self.usernames = [link.replace('https://www.instagram.com/', '').split("?igsh=")[0] for link in links]
+            self.usernames = [link.replace('https://www.instagram.com/', '').split("?igsh=")[0].replace('/', '') for link in links]
             logger.info(f'Start pars bio (usernames: {self.usernames})')
             async with httpx.AsyncClient(headers=self.HEADERS) as client:
                 self.client = client

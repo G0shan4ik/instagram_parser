@@ -25,11 +25,14 @@ class ParsVideoManager:
 
     def scrape_data(self, url: str) -> dict:
         try:
-            shortcode_match = re.search(r"/p/([^/]+)/|/reel/([^/]+)/", url)
-            if not shortcode_match:
-                return {"error": "Неверная ссылка"}
+            if 'igsh' not in url:
+                shortcode = url.replace('https://www.instagram.com/reel/', '')
+            else:
+                shortcode_match = re.search(r"/p/([^/]+)/|/reel/([^/]+)/", url)
+                shortcode = shortcode_match.group(1) or shortcode_match.group(2)
+                if not shortcode_match:
+                    return {"error": "Неверная ссылка"}
 
-            shortcode = shortcode_match.group(1) or shortcode_match.group(2)
             loader = instaloader.Instaloader()
 
             loader.context.log("⚠️ Работаем без авторизации — возможно 403")
@@ -47,8 +50,11 @@ class ParsVideoManager:
                 "views": _views
             }
         except Exception as ex:
-            shortcode_match = re.search(r"/p/([^/]+)/|/reel/([^/]+)/", url)
-            shortcode = shortcode_match.group(1) or shortcode_match.group(2)
+            if 'igsh' not in url:
+                shortcode = url.replace('https://www.instagram.com/reel/', '')
+            else:
+                shortcode_match = re.search(r"/p/([^/]+)/|/reel/([^/]+)/", url)
+                shortcode = shortcode_match.group(1) or shortcode_match.group(2)
             logger.error(f'Scrape_data ERROR {shortcode} -> \n{ex}\n\n')
             return {"error": str(ex)}
 
@@ -57,10 +63,12 @@ class ParsVideoManager:
         with ThreadPoolExecutor() as pool:
             result: dict = await loop.run_in_executor(pool, self.scrape_data, url)
 
-            # Защита от KeyError
             if isinstance(result, dict) and result.get('error'):
-                shortcode_match = re.search(r"/p/([^/]+)/|/reel/([^/]+)/", url)
-                shortcode = shortcode_match.group(1) or shortcode_match.group(2)
+                if 'igsh' not in url:
+                    shortcode = url.replace('https://www.instagram.com/reel/', '')
+                else:
+                    shortcode_match = re.search(r"/p/([^/]+)/|/reel/([^/]+)/", url)
+                    shortcode = shortcode_match.group(1) or shortcode_match.group(2)
                 logger.error(f"async_parse_instagram_video {shortcode} ERROR -> {result['error']}\n\n")
         return result
 
