@@ -1,78 +1,81 @@
 import asyncio
+import random
+import re
 from pprint import pprint
-from typing import Awaitable, Optional
+from typing import Optional, Awaitable, List, Dict
+from concurrent.futures import ThreadPoolExecutor
+
+import instaloader
 from loguru import logger
-import httpx
 
 
 def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
+    """Разбивает список на чанки по n элементов."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
 
 class ParsBioManager:
-    def __init__(self):
-        self.client = None
-        self.usernames: list[str] = []
-        self.HEADERS = {
-            "x-ig-app-id": "936619743392459",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Accept": "*/*",
-        }
+    @staticmethod
+    async def safe_sleep(min_seconds=1.5, max_seconds=3.0, print_sec: bool = False) -> None:
+        duration = random.uniform(min_seconds, max_seconds)
+        if print_sec:
+            logger.info(f"Sleep for: {duration:.2f} sec")
+        await asyncio.sleep(duration)
 
-    async def scrape_user(self, username: str) -> str:
+    def scrape_bio(self, username: str) -> Dict[str, str]:
         try:
-            logger.info(f'BIO -> {username}')
-            response = await self.client.get(
-                f"https://i.instagram.com/api/v1/users/web_profile_info/?username={username}"
-            )
-            response.raise_for_status()
-            data = response.json()
-            logger.success(f'Success pars BIO -> {username}')
-            return data["data"]["user"]["biography"].replace("\n", " ")
-        except Exception as ex:
-            logger.error(f'scrape_user ERROR\n{ex}\n')
+            loader = instaloader.Instaloader()
+            loader.context.log("Работаем без авторизации — возможен ограниченный доступ")
 
-    async def run(self, links: list[str], per_second: int = 1, print_data: bool = False) -> Optional[dict]:
+            profile = instaloader.Profile.from_username(loader.context, username)
+            bio = profile.biography.replace("\n", " ").strip()
+
+            logger.success(f'Success: {username}')
+            return {username: bio}
+        except Exception as ex:
+            logger.error(f'Error while scraping bio for {username}: {ex}')
+            return {username: f"error: {str(ex)}"}
+
+    async def async_parse_instagram_bio(self, username: str) -> Dict[str, str]:
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor() as pool:
+            result: Dict[str, str] = await loop.run_in_executor(pool, self.scrape_bio, username)
+            return result
+
+    async def run(self, links: List[str], per_second: int = 1, print_data: bool = False) -> Optional[List[Dict[str, str]]]:
         """
-            Pars Instagram BIO Manager
-        :param links: [ "https://www.instagram.com/{username}?igsh={Instagram_Share_Hash}", ]
-        :param per_second: Number of requests per second
-        :param print_data: Output data to the console; Default False
-        :return: Optional[ Dict { key(username) : value(bio text) } ]
+        Pars Instagram BIO Manager
+
+        :param links: Список ссылок на Instagram-профили
+        :param per_second: Количество запросов за раз (чанк)
+        :param print_data: Вывод результата в консоль
+        :return: Список словарей {username: biography}
         """
         try:
-            result, _dct = [], {}
-            self.usernames = [link.replace('https://www.instagram.com/', '').split("?igsh=")[0].replace('/', '') for link in links]
-            logger.info(f'Start pars bio (usernames: {self.usernames})')
-            async with httpx.AsyncClient(headers=self.HEADERS) as client:
-                self.client = client
+            usernames = []
+            for link in links:
+                match = re.match(r"https?://www\.instagram\.com/([^/?#]+)/?", link)
+                if match:
+                    usernames.append(match.group(1))
+                else:
+                    logger.warning(f"Не удалось извлечь username из ссылки: {link}")
 
-                if not self.client:
-                    logger.error(f'init_client ERROR\n')
-                    return
-                logger.success('Success init Client')
+            logger.info(f'Start parsing usernames: {usernames}')
 
-                processes: [Awaitable] = []
-                for username in self.usernames:
-                    processes.append(self.scrape_user(username))
+            processes: List[Awaitable] = []
+            result: List[Dict[str, str]] = []
 
-                for items in chunks(processes, per_second):
-                    await asyncio.sleep(2)
-                    result.extend(await asyncio.gather(*items))
+            for username in usernames:
+                processes.append(self.async_parse_instagram_bio(username))
 
-                for idx in range(len(self.usernames)):
-                    try:
-                        _dct[self.usernames[idx]] = result[idx]
-                    except:
-                        logger.warning('Not Found Dict Key')
+            for batch in chunks(processes, per_second):
+                result.extend(await asyncio.gather(*batch))
+                await self.safe_sleep(print_sec=print_data)
 
-                if print_data:
-                    pprint(_dct)
-                return _dct
+            if print_data:
+                pprint(result)
+            return result
         except Exception as ex:
-            logger.error(f'!!! FATAL ERROR !!!\n\n{ex}\n\n')
-            return {'error': str(ex)}
+            logger.error(f'FATAL ERROR\n\n{ex}\n')
+            return [{'error': str(ex)}]
