@@ -2,8 +2,8 @@ from typing import Optional
 
 from fastapi import APIRouter
 
-from inst.parser.pars_inst_video import ParsVideoManager
-from inst.parser.pars_inst_bio import ParsBioManager
+from inst.parsers.parser_inst.pars_inst_video import ParsVideoManager
+from inst.parsers.parser_inst.pars_inst_bio import ParsBioManager
 
 from inst.api.datamodels import BaseData
 

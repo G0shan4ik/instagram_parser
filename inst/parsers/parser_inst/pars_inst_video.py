@@ -2,12 +2,11 @@ import asyncio
 import random
 import re
 from pprint import pprint
-from random import randint
 from typing import Optional, Awaitable
+from concurrent.futures import ThreadPoolExecutor
 
 import instaloader
 from loguru import logger
-from concurrent.futures import ThreadPoolExecutor
 
 
 def chunks(lst, n):
